@@ -4,13 +4,40 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 struct Args {
     url: String,
+
+    #[arg(short = 'X', long, verbatim_doc_comment)]
+    method: Option<String>,
+
+    #[arg(short, long)]
+    data: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let response = reqwest::get(&args.url).await?;
+    let method = match &args.method {
+        Some(m) => m.parse().unwrap_or(reqwest::Method::GET),
 
+        None => {
+            if args.data.is_some() {
+            reqwest::Method::POST
+            } else {
+                reqwest::Method::GET
+            }
+        }
+    };
+
+    let client = reqwest::Client::new();
+
+    let mut request_builder = client.request(method, &args.url);
+
+    if let Some(data) =  &args.data {
+        request_builder = request_builder
+        .header("Content-Type", "application/json")
+        .body(data.clone());
+    }
+
+    let response = request_builder.send().await?;
     println!("Статус: {}", response.status());
     println!("Заголовки:");
     for (name, value) in response.headers() {
