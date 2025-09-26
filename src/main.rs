@@ -1,5 +1,9 @@
 use clap::Parser;
 
+mod error;
+use error::MyToolError;
+
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -13,10 +17,10 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), MyToolError> {
     let args = Args::parse();
     let method = match &args.method {
-        Some(m) => m.parse().unwrap_or(reqwest::Method::GET),
+        Some(m) => m.parse().map_err(|_| MyToolError::InvalidMethod(m.clone()))?,
 
         None => {
             if args.data.is_some() {
@@ -26,6 +30,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     };
+
+
+    let _url_check = reqwest::Url::parse(&args.url).map_err(|_| MyToolError::InvalidUrl(args.url.clone()))?;
 
     let client = reqwest::Client::new();
 
